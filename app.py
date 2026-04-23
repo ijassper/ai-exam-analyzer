@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
-import time
+import fitz  # PyMuPDF 패키지
+import time, io
+from PIL import Image
 
 # 1. 페이지 기본 설정 (넓은 화면 사용)
 st.set_page_config(page_title="AI 시험지 분석 솔루션", page_icon="📝", layout="wide")
@@ -59,7 +61,7 @@ st.markdown("""
 # ==========================================
 # 🚀 4. 파일 업로드 및 분석 로직 (좌우 분할 UX 적용)
 # ==========================================
-uploaded_file = st.file_uploader("시험지 이미지 파일(PNG, JPG)을 업로드하세요", type=['png', 'jpg', 'jpeg'])
+uploaded_file = st.file_uploader("시험지 파일(PNG, JPG, PDF)을 업로드하세요", type=['png', 'jpg', 'jpeg', 'pdf'])
 
 if st.button("✨ AI 분석 시작하기"):
     if uploaded_file is not None:
@@ -71,8 +73,23 @@ if st.button("✨ AI 분석 시작하기"):
         # ⬅️ [왼쪽 화면] 업로드한 원본 이미지 표시
         with left_col:
             st.markdown("### 📄 원본 시험지")
-            # 이미지를 화면 너비에 맞게 꽉 차게 보여줌
-            st.image(uploaded_file, use_container_width=True, caption="업로드된 시험지 이미지")
+            
+            # 파일 확장자 확인
+            file_extension = uploaded_file.name.split('.')[-1].lower()
+            
+            if file_extension == 'pdf':
+                # PDF 파일인 경우: 첫 페이지를 이미지로 변환
+                pdf_bytes = uploaded_file.read()
+                doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+                page = doc.load_page(0)  # 첫 번째 페이지 가져오기
+                pix = page.get_pixmap(dpi=150)  # 고화질 이미지로 렌더링
+                
+                img_data = pix.tobytes("png")
+                display_image = Image.open(io.BytesIO(img_data))
+                st.image(display_image, use_container_width=True, caption="업로드된 시험지 (PDF 1페이지)")
+            else:
+                # 일반 이미지(JPG, PNG)인 경우
+                st.image(uploaded_file, use_container_width=True, caption="업로드된 시험지 이미지")
             
         # ➡️ [오른쪽 화면] AI 분석 결과 출력
         with right_col:
